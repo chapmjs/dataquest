@@ -66,3 +66,18 @@ create_boxplot_day <- function (x,y) {
 
 boxplot_compare_month <- map2(x_var, y_var, create_boxplot_month)
 boxplot_compare_day <- map2(x_var, y_var, create_boxplot_day)
+
+
+
+## what effect do these 8 variablse have on area?
+
+y_var = "area"
+x_var = names(forestfires[5:12])
+
+area_scatter <- function (x,y) {
+  ggplot(data = forestfires) +
+    aes_string(x = x, y = y) +
+    geom_point()
+}
+
+map2(x_var, y_var, area_scatter)
