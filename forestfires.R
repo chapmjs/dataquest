@@ -4,6 +4,8 @@
 library(readr)
 library(dplyr)
 library(ggplot2)
+library(purrr)
+
 
 forestfires <- read_csv("data/forestfires.csv")
 #View(forestfires)
@@ -36,8 +38,31 @@ ggplot(data = fires_by_day) +
   geom_bar(stat = "identity") +
   labs(title = "Number of Forest Fires by Day")
 
+# create variables for box plots
+y_var <- names(forestfires[5:12])
+x_var <- names(forestfires["month"])
+x_var <- names(forestfires["day"])
 
 
+#practice boxplot
+ggplot(data = forestfires) +
+  aes(x = month, y = FFMC) +
+  geom_boxplot()
 
 
+# by month boxplot function
+create_boxplot_month <- function (x,y) {
+  ggplot (data = forestfires) +
+    aes_string(x = x, y = y) +
+    geom_boxplot()
+}
 
+# by day boxplot function
+create_boxplot_day <- function (x,y) {
+  ggplot (data = forestfires) +
+    aes_string(x = x, y = y) +
+    geom_boxplot()
+}
+
+boxplot_compare_month <- map2(x_var, y_var, create_boxplot_month)
+boxplot_compare_day <- map2(x_var, y_var, create_boxplot_day)
