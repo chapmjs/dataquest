@@ -1,0 +1,136 @@
+---
+title: "Guided Project: Exploring NYC Schools Survey Data"
+author: "John Chapman"
+date: "July 10, 2019"
+output: html_notebook
+---
+In this project, I will analize data from the New York City school depormant to understand whether parent, teacher, and student perceptions of the following factors affect average school SAT scores (an indicator of academic performanece):
+
+1. Safety
+2. Engagement
+3. Communication
+4. Academics
+
+The data, collected in 2011, are publicly available and can be accessed here.
+
+I'll start by loading the packages that I'll need for this analysis:
+```{r}
+library(readr)
+library(dplyr)
+library(stringr)
+library(purrr)
+library(tidyr)
+library(ggplot2)
+```
+
+load data
+file downloaded from https://data.cityofnewyork.us/Education/2011-NYC-School-Survey/mnz3-dyi8
+```{r}
+masterfile <- read_tsv("data/2011 data files online/masterfile11_gened_final.txt")
+d75file <- read_tsv("data/2011 data files online/masterfile11_d75_final.txt")
+combined <- read_csv("data/combined.csv")
+```
+
+simplify data by filtering on high school and  selecting only variables needed for the analysis (dbn, saf_p_11, com_s_11, etc)
+```{r}
+master1 <- masterfile %>%
+  filter(schooltype == "High School") %>%
+  select(dbn:schoolname, saf_p_11:aca_tot_11) 
+
+d75_1 <- d75file %>%
+  #filter(schooltype == "High School") %>%
+  select(dbn:schoolname, saf_p_11:aca_tot_11)
+```
+
+Combined master1 and d75_1
+```{r}
+survey_total <- master1 %>%
+  bind_rows(d75_1)
+```
+
+rename combined's DBN To dbn
+```{r}
+combined <- combined %>%
+  rename(dbn = DBN)
+```
+
+Combine survey data with combined file to look at the relationship between perception and performance
+```{r}
+survey_combined <- combined %>%
+  left_join(survey_total, by = "dbn")
+```
+
+Create a correlation matrix to look for interesting relationships between pairs of variables in `combined_survey` and convert it to a tibble so it's easier to work with using tidyverse tools.
+
+```{r}
+cor_mat <- survey_combined %>%    ## interesting relationshipsS
+  select(avg_sat_score, saf_p_11:aca_tot_11) %>%
+  cor(use = "pairwise.complete.obs")
+cor_tib <- cor_mat %>%
+  as_tibble(rownames = "variable")
+```
+
+Look for correlations of other variables with `avg_sat_score` that are greater than 0.25 or less than -0.25 (strong correlations).
+
+```{r}
+strong_cors <- cor_tib %>%
+  select(variable, avg_sat_score) %>%
+  filter(avg_sat_score > 0.25 | avg_sat_score < -0.25)  
+```
+
+Make scatter plots of those variables with `avg_sat_score` to examine relationships more closely.
+
+```{r}
+create_scatter <- function(x, y) {     
+  ggplot(data = survey_combined) + 
+    aes_string(x = x, y = y) +
+    geom_point(alpha = 0.3) +
+    theme(panel.background = element_rect(fill = "white"))
+}
+x_var <- strong_cors$variable[2:5]
+y_var <- "avg_sat_score"
+  
+map2(x_var, y_var, create_scatter)
+```
+
+Reshape the data so that you can investigate differences in student, parent, and teacher responses to survey questions.
+
+```{r}
+survey_combined_gather <- survey_combined %>%                         
+  gather(key = "survey_question", value = score, saf_p_11:aca_tot_11)
+```
+
+Use `str_sub()` to create new variables, `response_type` and `question`, from the `survey_question` variable.
+
+```{r}
+survey_combined_gather <- survey_combined_gather %>%
+  mutate(response_type = str_sub(survey_question, 4, 6)) %>%   
+  mutate(question = str_sub(survey_question, 1, 3))
+```
+
+Replace `response_type` variable values with names "parent", "teacher", "student", "total" using `if_else()` function.
+
+```{r}
+survey_combined_gather <- survey_combined_gather %>%
+  mutate(response_type = ifelse(response_type  == "_p_", "parent", 
+                                ifelse(response_type == "_t_", "teacher",
+                                       ifelse(response_type == "_s_", "student", 
+                                              ifelse(response_type == "_to", "total", "NA")))))
+```
+
+Make a boxplot to see if there appear to be differences in how the three groups of responders (parents, students, and teachers) answered the four questions. 
+
+```{r}
+survey_combined_gather %>%
+  filter(response_type != "total") %>%
+  ggplot() +
+  aes(x = question, y = score, fill = response_type) +
+  geom_boxplot()
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
